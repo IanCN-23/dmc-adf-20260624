@@ -1,0 +1,21 @@
+{
+	"name": "ccondori-adf-dataengineered3",
+	"properties": {
+		"trustModeClaimForMi": {
+			"value": "Disabled",
+			"editable": true
+		}
+	},
+	"location": "eastus",
+	"identity": {
+		"type": "SystemAssigned,UserAssigned",
+		"principalId": "93eb0db9-dbba-455d-af2c-1634e68b8506",
+		"tenantId": "1bd984f7-537a-4d80-b05f-c133807e7ab1",
+		"userAssignedIdentities": {
+			"/subscriptions/8dbf2f92-5d3b-4c57-bdc1-c75099bdad75/resourcegroups/ccondori-rg-azure-de-ed3/providers/Microsoft.ManagedIdentity/userAssignedIdentities/ccondori-uami-dataengineered3": {
+				"clientId": "b4baa2a6-618b-4878-bb76-dba267c63370",
+				"principalId": "26cff494-bdc1-4a35-95c9-2e5d85164cf1"
+			}
+		}
+	}
+}
