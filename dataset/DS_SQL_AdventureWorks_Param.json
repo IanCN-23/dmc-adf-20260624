@@ -3,7 +3,10 @@
 	"properties": {
 		"linkedServiceName": {
 			"referenceName": "LS_AzureSQL_AdventureWorks",
-			"type": "LinkedServiceReference"
+			"type": "LinkedServiceReference",
+			"parameters": {
+				"prm_lnk_dbase": "AdventureWorksLT"
+			}
 		},
 		"parameters": {
 			"schemaTable": {
