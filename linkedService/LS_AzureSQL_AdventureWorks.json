@@ -1,11 +1,17 @@
 {
 	"name": "LS_AzureSQL_AdventureWorks",
 	"properties": {
+		"parameters": {
+			"prm_lnk_dbase": {
+				"type": "string",
+				"defaultValue": "AdventureWorksLT"
+			}
+		},
 		"annotations": [],
 		"type": "AzureSqlDatabase",
 		"typeProperties": {
 			"server": "ccondori-server-central.database.windows.net",
-			"database": "AdventureWorksLT",
+			"database": "@{linkedService().prm_lnk_dbase}",
 			"encrypt": "mandatory",
 			"trustServerCertificate": false,
 			"authenticationType": "SQL",
