@@ -1,0 +1,30 @@
+{
+	"name": "DS_SQL_AdventureWorks_Param",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_AzureSQL_AdventureWorks",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"schemaTable": {
+				"type": "string"
+			},
+			"nameTable": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [],
+		"typeProperties": {
+			"schema": {
+				"value": "@dataset().schemaTable",
+				"type": "Expression"
+			},
+			"table": {
+				"value": "@dataset().nameTable",
+				"type": "Expression"
+			}
+		}
+	}
+}
