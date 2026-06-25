@@ -1,0 +1,14 @@
+{
+	"name": "LS_ADLS_Landing",
+	"properties": {
+		"annotations": [],
+		"type": "AzureBlobFS",
+		"typeProperties": {
+			"url": "https://ccondoristad3.dfs.core.windows.net/",
+			"credential": {
+				"referenceName": "cred_uami",
+				"type": "CredentialReference"
+			}
+		}
+	}
+}
