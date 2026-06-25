@@ -1,0 +1,142 @@
+{
+	"name": "PL_Ingest_AdventureWorks_Param_Lookup",
+	"properties": {
+		"activities": [
+			{
+				"name": "ForEach_Tables",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Extraer_esquema_name_tables",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Extraer_esquema_name_tables').output.value",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "Copy_Table",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"sink": {
+									"type": "ParquetSink",
+									"storeSettings": {
+										"type": "AzureBlobFSWriteSettings",
+										"copyBehavior": "PreserveHierarchy"
+									},
+									"formatSettings": {
+										"type": "ParquetWriteSettings"
+									}
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "DS_SQL_AdventureWorks_Param",
+									"type": "DatasetReference",
+									"parameters": {
+										"schemaTable": {
+											"value": "@first(split(string(item().TABLE_SCHEMA),'.'))",
+											"type": "Expression"
+										},
+										"nameTable": {
+											"value": "@last(split(string(item().TABLE_NAME),'.'))",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "DS_ADLS_Landing_Param",
+									"type": "DatasetReference",
+									"parameters": {
+										"fileName": {
+											"value": "@concat(last(split(string(item().TABLE_NAME),'.')),'.parquet')",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						}
+					]
+				}
+			},
+			{
+				"name": "Extraer_esquema_name_tables",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT TABLE_SCHEMA, TABLE_NAME\nFROM INFORMATION_SCHEMA.TABLES\nWHERE TABLE_TYPE = 'BASE TABLE'\nand TABLE_SCHEMA != 'dbo'\nORDER BY TABLE_SCHEMA, TABLE_NAME",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "DS_SQL_AdventureWorks_Param",
+						"type": "DatasetReference",
+						"parameters": {
+							"schemaTable": {
+								"value": "test",
+								"type": "Expression"
+							},
+							"nameTable": {
+								"value": "dummmy",
+								"type": "Expression"
+							}
+						}
+					},
+					"firstRowOnly": false
+				}
+			}
+		],
+		"variables": {
+			"tableList": {
+				"type": "Array",
+				"defaultValue": [
+					"SalesLT.SalesOrderHeader",
+					"SalesLT.SalesOrderDetail",
+					"SalesLT.Customer"
+				]
+			}
+		},
+		"annotations": []
+	}
+}
