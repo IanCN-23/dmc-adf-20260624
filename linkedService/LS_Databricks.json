@@ -1,0 +1,26 @@
+{
+	"name": "LS_Databricks",
+	"properties": {
+		"annotations": [],
+		"type": "AzureDatabricks",
+		"typeProperties": {
+			"domain": "https://adb-7405609872821529.9.azuredatabricks.net",
+			"accessToken": {
+				"type": "AzureKeyVaultSecret",
+				"store": {
+					"referenceName": "lnk_kv",
+					"type": "LinkedServiceReference"
+				},
+				"secretName": "dbw-adf-token"
+			},
+			"newClusterNodeType": "Standard_DS3_v2",
+			"newClusterNumOfWorker": "0",
+			"newClusterSparkEnvVars": {
+				"PYSPARK_PYTHON": "/databricks/python3/bin/python3"
+			},
+			"newClusterVersion": "17.3.x-scala2.13",
+			"clusterOption": "Fixed",
+			"newClusterInitScripts": []
+		}
+	}
+}
