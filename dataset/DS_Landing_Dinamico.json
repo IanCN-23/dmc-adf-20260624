@@ -1,0 +1,32 @@
+{
+	"name": "DS_Landing_Dinamico",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_ADLS_Landing",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"p_nombre_tabla": {
+				"type": "string"
+			},
+			"p_fecha_proceso": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "DelimitedText",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"fileName": "@concat(dataset().p_nombre_tabla, '.csv')",
+				"folderPath": "@concat(dataset().p_nombre_tabla, '/', dataset().p_fecha_proceso)",
+				"fileSystem": "landing"
+			},
+			"columnDelimiter": ",",
+			"escapeChar": "\\",
+			"firstRowAsHeader": true,
+			"quoteChar": "\""
+		},
+		"schema": []
+	}
+}

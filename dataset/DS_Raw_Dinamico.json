@@ -1,0 +1,28 @@
+{
+	"name": "DS_Raw_Dinamico",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_ADLS_Landing",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"p_nombre_tabla": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "DelimitedText",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"fileName": "@concat(dataset().p_nombre_tabla, '.csv')",
+				"fileSystem": "raw"
+			},
+			"columnDelimiter": ",",
+			"escapeChar": "\\",
+			"firstRowAsHeader": true,
+			"quoteChar": "\""
+		},
+		"schema": []
+	}
+}
