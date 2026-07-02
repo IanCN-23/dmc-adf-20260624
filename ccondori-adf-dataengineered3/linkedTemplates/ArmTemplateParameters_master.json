@@ -1,0 +1,30 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"value": "ccondori-adf-dataengineered3"
+		},
+		"LS_ADLS_Landing_properties_typeProperties_url": {
+			"value": "https://ccondoristad3.dfs.core.windows.net/"
+		},
+		"LS_AzureSQL_AdventureWorks_properties_typeProperties_server": {
+			"value": "ccondori-server-central.database.windows.net"
+		},
+		"LS_AzureSQL_AdventureWorks_properties_typeProperties_database": {
+			"value": "@{linkedService().prm_lnk_dbase}"
+		},
+		"LS_AzureSQL_AdventureWorks_properties_typeProperties_userName": {
+			"value": "ccondori_admin"
+		},
+		"lnk_kv_properties_typeProperties_baseUrl": {
+			"value": "https://ccondori-kv-deed3.vault.azure.net/"
+		},
+		"containerUri": {
+			"value": ""
+		},
+		"containerSasToken": {
+			"value": ""
+		}
+	}
+}

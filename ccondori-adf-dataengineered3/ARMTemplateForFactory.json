@@ -1,0 +1,954 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "ccondori-adf-dataengineered3"
+		},
+		"LS_ADLS_Landing_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://ccondoristad3.dfs.core.windows.net/"
+		},
+		"LS_AzureSQL_AdventureWorks_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "ccondori-server-central.database.windows.net"
+		},
+		"LS_AzureSQL_AdventureWorks_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "@{linkedService().prm_lnk_dbase}"
+		},
+		"LS_AzureSQL_AdventureWorks_properties_typeProperties_userName": {
+			"type": "string",
+			"defaultValue": "ccondori_admin"
+		},
+		"lnk_kv_properties_typeProperties_baseUrl": {
+			"type": "string",
+			"defaultValue": "https://ccondori-kv-deed3.vault.azure.net/"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_Ingest_AdventureWorks_Param_Lookup')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "ForEach_Tables",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Extraer_esquema_name_tables",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Extraer_esquema_name_tables').output.value",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "Copy_Table",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "AzureSqlSource",
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings",
+												"copyBehavior": "PreserveHierarchy"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "DS_SQL_AdventureWorks_Param",
+											"type": "DatasetReference",
+											"parameters": {
+												"schemaTable": {
+													"value": "@first(split(string(item().TABLE_SCHEMA),'.'))",
+													"type": "Expression"
+												},
+												"nameTable": {
+													"value": "@last(split(string(item().TABLE_NAME),'.'))",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "DS_ADLS_Landing_Param",
+											"type": "DatasetReference",
+											"parameters": {
+												"fileName": {
+													"value": "@concat(last(split(string(item().TABLE_NAME),'.')),'.parquet')",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								}
+							]
+						}
+					},
+					{
+						"name": "Extraer_esquema_name_tables",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"sqlReaderQuery": "SELECT TABLE_SCHEMA, TABLE_NAME\nFROM INFORMATION_SCHEMA.TABLES\nWHERE TABLE_TYPE = 'BASE TABLE'\nand TABLE_SCHEMA != 'dbo'\nORDER BY TABLE_SCHEMA, TABLE_NAME",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "DS_SQL_AdventureWorks_Param",
+								"type": "DatasetReference",
+								"parameters": {
+									"schemaTable": {
+										"value": "test",
+										"type": "Expression"
+									},
+									"nameTable": {
+										"value": "dummmy",
+										"type": "Expression"
+									}
+								}
+							},
+							"firstRowOnly": false
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"variables": {
+					"tableList": {
+						"type": "Array",
+						"defaultValue": [
+							"SalesLT.SalesOrderHeader",
+							"SalesLT.SalesOrderDetail",
+							"SalesLT.Customer"
+						]
+					}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/DS_SQL_AdventureWorks_Param')]",
+				"[concat(variables('factoryId'), '/datasets/DS_ADLS_Landing_Param')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_Ingest_AdventureWorks_Param_Table_list')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "ForEach_Tables",
+						"type": "ForEach",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@variables('tableList')",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "Copy_Table",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "AzureSqlSource",
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings",
+												"copyBehavior": "PreserveHierarchy"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "DS_SQL_AdventureWorks_Param",
+											"type": "DatasetReference",
+											"parameters": {
+												"schemaTable": {
+													"value": "@first(split(string(item()),'.'))",
+													"type": "Expression"
+												},
+												"nameTable": {
+													"value": "@last(split(string(item()),'.'))",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "DS_ADLS_Landing_Param",
+											"type": "DatasetReference",
+											"parameters": {
+												"fileName": {
+													"value": "@concat(last(split(string(item()),'.')),'.parquet')",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"variables": {
+					"tableList": {
+						"type": "Array",
+						"defaultValue": [
+							"SalesLT.SalesOrderHeader",
+							"SalesLT.SalesOrderDetail",
+							"SalesLT.Customer"
+						]
+					}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/DS_SQL_AdventureWorks_Param')]",
+				"[concat(variables('factoryId'), '/datasets/DS_ADLS_Landing_Param')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_ADLS_Landing_Param')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_ADLS_Landing",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"fileName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().fileName",
+							"type": "Expression"
+						},
+						"folderPath": "adventureworks",
+						"fileSystem": "landing"
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_ADLS_Landing')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_SQL_AdventureWorks_Param')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_AzureSQL_AdventureWorks",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"prm_lnk_dbase": "AdventureWorksLT"
+					}
+				},
+				"parameters": {
+					"schemaTable": {
+						"type": "string"
+					},
+					"nameTable": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": {
+						"value": "@dataset().schemaTable",
+						"type": "Expression"
+					},
+					"table": {
+						"value": "@dataset().nameTable",
+						"type": "Expression"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_AzureSQL_AdventureWorks')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/LS_ADLS_Landing')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('LS_ADLS_Landing_properties_typeProperties_url')]",
+					"credential": {
+						"referenceName": "cred_uami",
+						"type": "CredentialReference"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/credentials/cred_uami')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/LS_AzureSQL_AdventureWorks')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"parameters": {
+					"prm_lnk_dbase": {
+						"type": "string",
+						"defaultValue": "AdventureWorksLT"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlDatabase",
+				"typeProperties": {
+					"server": "[parameters('LS_AzureSQL_AdventureWorks_properties_typeProperties_server')]",
+					"database": "[parameters('LS_AzureSQL_AdventureWorks_properties_typeProperties_database')]",
+					"encrypt": "mandatory",
+					"trustServerCertificate": false,
+					"authenticationType": "SQL",
+					"userName": "[parameters('LS_AzureSQL_AdventureWorks_properties_typeProperties_userName')]",
+					"password": {
+						"type": "AzureKeyVaultSecret",
+						"store": {
+							"referenceName": "lnk_kv",
+							"type": "LinkedServiceReference"
+						},
+						"secretName": "secret-azuresql-adventureworks-password"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/lnk_kv')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/lnk_kv')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureKeyVault",
+				"typeProperties": {
+					"baseUrl": "[parameters('lnk_kv_properties_typeProperties_baseUrl')]",
+					"credential": {
+						"referenceName": "cred_uami",
+						"type": "CredentialReference"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/credentials/cred_uami')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/cred_uami')]",
+			"type": "Microsoft.DataFactory/factories/credentials",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "ManagedIdentity",
+				"typeProperties": {
+					"resourceId": "/subscriptions/8dbf2f92-5d3b-4c57-bdc1-c75099bdad75/resourcegroups/ccondori-rg-azure-de-ed3/providers/Microsoft.ManagedIdentity/userAssignedIdentities/ccondori-uami-dataengineered3"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pl_ingesta_transandino')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Copy_envios",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "DelimitedTextSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings"
+								}
+							},
+							"sink": {
+								"type": "DelimitedTextSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "DelimitedTextWriteSettings",
+									"quoteAllText": true,
+									"fileExtension": ".txt"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_Raw_Dinamico",
+								"type": "DatasetReference",
+								"parameters": {
+									"p_nombre_tabla": "envios"
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_Landing_Dinamico",
+								"type": "DatasetReference",
+								"parameters": {
+									"p_nombre_tabla": "envios",
+									"p_fecha_proceso": "@pipeline().parameters.p_fecha_proceso"
+								}
+							}
+						]
+					},
+					{
+						"name": "Copy_rutas",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "DelimitedTextSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings"
+								}
+							},
+							"sink": {
+								"type": "DelimitedTextSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "DelimitedTextWriteSettings",
+									"quoteAllText": true,
+									"fileExtension": ".txt"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_Raw_Dinamico",
+								"type": "DatasetReference",
+								"parameters": {
+									"p_nombre_tabla": "rutas"
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_Landing_Dinamico",
+								"type": "DatasetReference",
+								"parameters": {
+									"p_nombre_tabla": "rutas",
+									"p_fecha_proceso": "@pipeline().parameters.p_fecha_proceso"
+								}
+							}
+						]
+					},
+					{
+						"name": "Copy_clientes_logistica",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "DelimitedTextSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings"
+								}
+							},
+							"sink": {
+								"type": "DelimitedTextSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "DelimitedTextWriteSettings",
+									"quoteAllText": true,
+									"fileExtension": ".txt"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_Raw_Dinamico",
+								"type": "DatasetReference",
+								"parameters": {
+									"p_nombre_tabla": "clientes_logistica"
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_Landing_Dinamico",
+								"type": "DatasetReference",
+								"parameters": {
+									"p_nombre_tabla": "clientes_logistica",
+									"p_fecha_proceso": "@pipeline().parameters.p_fecha_proceso"
+								}
+							}
+						]
+					},
+					{
+						"name": "Copy_incidencias_2023",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "DelimitedTextSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings"
+								}
+							},
+							"sink": {
+								"type": "DelimitedTextSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "DelimitedTextWriteSettings",
+									"quoteAllText": true,
+									"fileExtension": ".txt"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_Raw_Dinamico",
+								"type": "DatasetReference",
+								"parameters": {
+									"p_nombre_tabla": "incidencias_2023"
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_Landing_Dinamico",
+								"type": "DatasetReference",
+								"parameters": {
+									"p_nombre_tabla": "incidencias_2023",
+									"p_fecha_proceso": "@pipeline().parameters.p_fecha_proceso"
+								}
+							}
+						]
+					},
+					{
+						"name": "Copy_transportistas",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "DelimitedTextSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings"
+								}
+							},
+							"sink": {
+								"type": "DelimitedTextSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "DelimitedTextWriteSettings",
+									"quoteAllText": true,
+									"fileExtension": ".txt"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_Raw_Dinamico",
+								"type": "DatasetReference",
+								"parameters": {
+									"p_nombre_tabla": "transportistas"
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_Landing_Dinamico",
+								"type": "DatasetReference",
+								"parameters": {
+									"p_nombre_tabla": "transportistas",
+									"p_fecha_proceso": "@pipeline().parameters.p_fecha_proceso"
+								}
+							}
+						]
+					},
+					{
+						"name": "Procesar_Medallion",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "Copy_incidencias_2023",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							},
+							{
+								"activity": "Copy_rutas",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							},
+							{
+								"activity": "Copy_envios",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							},
+							{
+								"activity": "Copy_clientes_logistica",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							},
+							{
+								"activity": "Copy_transportistas",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": "/Users/jobcn2024@gmail.com/ccondori-tp-ade3/notebooks/tp_notebook",
+							"baseParameters": {
+								"fecha_proceso": "@pipeline().parameters.p_fecha_proceso"
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "LS_Databricks",
+							"type": "LinkedServiceReference"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"p_fecha_proceso": {
+						"type": "string"
+					}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/DS_Raw_Dinamico')]",
+				"[concat(variables('factoryId'), '/datasets/DS_Landing_Dinamico')]",
+				"[concat(variables('factoryId'), '/linkedServices/LS_Databricks')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/LS_Databricks')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureDatabricks",
+				"typeProperties": {
+					"domain": "https://adb-7405609872821529.9.azuredatabricks.net",
+					"accessToken": {
+						"type": "AzureKeyVaultSecret",
+						"store": {
+							"referenceName": "lnk_kv",
+							"type": "LinkedServiceReference"
+						},
+						"secretName": "dbw-adf-token"
+					},
+					"newClusterNodeType": "Standard_DS3_v2",
+					"newClusterNumOfWorker": "0",
+					"newClusterSparkEnvVars": {
+						"PYSPARK_PYTHON": "/databricks/python3/bin/python3"
+					},
+					"newClusterVersion": "17.3.x-scala2.13",
+					"clusterOption": "Fixed",
+					"newClusterInitScripts": []
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/lnk_kv')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_Raw_Dinamico')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_ADLS_Landing",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"p_nombre_tabla": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": "@concat(dataset().p_nombre_tabla, '.csv')",
+						"fileSystem": "raw"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_ADLS_Landing')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_Landing_Dinamico')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_ADLS_Landing",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"p_nombre_tabla": {
+						"type": "string"
+					},
+					"p_fecha_proceso": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": "@concat(dataset().p_nombre_tabla, '.csv')",
+						"folderPath": "@concat(dataset().p_nombre_tabla, '/', dataset().p_fecha_proceso)",
+						"fileSystem": "landing"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_ADLS_Landing')]"
+			]
+		}
+	]
+}
